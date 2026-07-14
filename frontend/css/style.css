@@ -1,0 +1,79 @@
+/* ============================================
+   campus-trade 自定义样式
+   ============================================ */
+
+/* ---- 商品卡片悬停 ---- */
+.product-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+}
+
+/* ---- 登录/注册页面 ---- */
+.auth-container {
+    max-width: 440px;
+    margin: 80px auto;
+}
+
+/* ---- 管理后台侧边栏 ---- */
+.admin-sidebar {
+    min-height: calc(100vh - 56px);
+    background: #f8f9fa;
+}
+.admin-sidebar .nav-link {
+    color: #333;
+    padding: 10px 16px;
+    border-radius: 6px;
+    margin-bottom: 2px;
+}
+.admin-sidebar .nav-link:hover,
+.admin-sidebar .nav-link.active {
+    background: #0d6efd;
+    color: white;
+}
+
+/* ---- 订单状态标签 ---- */
+.status-badge {
+    font-size: 0.75rem;
+    padding: 2px 10px;
+    border-radius: 12px;
+}
+.status-待付款  { background: #fff3cd; color: #856404; }
+.status-已支付  { background: #cce5ff; color: #004085; }
+.status-已完成  { background: #d4edda; color: #155724; }
+.status-已取消  { background: #f8d7da; color: #721c24; }
+.status-待审核  { background: #e2e3e5; color: #383d41; }
+.status-已上架  { background: #d1ecf1; color: #0c5460; }
+.status-已售出  { background: #d4edda; color: #155724; }
+.status-审核驳回 { background: #f8d7da; color: #721c24; }
+
+/* ---- 星级评分 ---- */
+.stars {
+    display: flex;
+    gap: 4px;
+    cursor: pointer;
+}
+.stars .star {
+    font-size: 1.5rem;
+    color: #ddd;
+    transition: color 0.15s;
+}
+.stars .star.active,
+.stars .star:hover {
+    color: #ffc107;
+}
+
+/* ---- 统计看板 ---- */
+.stat-card {
+    border-left: 4px solid #0d6efd;
+    padding: 16px;
+    border-radius: 8px;
+    background: #fff;
+}
+
+/* ---- 通用 ---- */
+body { background: #f5f6fa; }
+.page-header { margin: 24px 0 16px; }
+.empty-state { text-align: center; padding: 60px 0; color: #999; }
