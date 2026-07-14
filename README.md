@@ -49,6 +49,44 @@ python app.py
 
 > 每个文件标注了责任人，**改自己的文件，不要改别人的**。
 
+```
+campus-trade-system/
+├── backend/
+│   ├── app.py                 # Flask 主入口
+│   ├── config.py              # 配置文件（DB/JWT/上传）
+│   ├── db.py                  # 数据库连接模块（query/execute）
+│   ├── auth.py                # JWT token / login_required 装饰器
+│   ├── requirements.txt       # Python 依赖
+│   └── blueprints/
+│       ├── auth_bp.py         # 登录/注册/个人信息
+│       ├── product_bp.py      # 商品 CRUD + 收藏
+│       ├── order_bp.py        # 下单/支付/确认/评价
+│       ├── lostfound_bp.py    # 失物招领 + 认领
+│       ├── admin_bp.py        # 管理员审核/用户管理/举报
+│       └── stats_bp.py        # 数据统计
+├── frontend/
+│   ├── login.html             # 登录页
+│   ├── register.html          # 注册页
+│   ├── index.html             # 首页（商品列表）
+│   ├── product_detail.html    # 商品详情 + 立即购买
+│   ├── product_publish.html   # 发布商品
+│   ├── my_orders.html         # 我的订单（付款/确认/取消/评价）
+│   ├── lost_found.html        # 失物招领列表 + 发布 + 认领
+│   ├── personal.html          # 个人中心 + 信用记录
+│   ├── css/style.css          # 自定义样式
+│   ├── js/api.js              # fetch 统一封装
+│   ├── js/components.js       # 导航栏/商品卡片/Toast
+│   └── admin/
+│       ├── statistics.html    # 数据统计面板
+│       ├── product_audit.html # 商品审核
+│       ├── claim_audit.html   # 认领审核
+│       ├── user_manage.html   # 用户管理
+│       └── logs.html          # 审核日志
+├── database/
+│   └── 01_init_instance.sql   # 表空间+数据库+用户
+└── README.md
+```
+
 ### backend/ 后端
 
 | 文件 | 负责人 | 功能 |
