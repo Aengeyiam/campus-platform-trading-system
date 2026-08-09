@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的发布 - 校园二手交易</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/style.css" rel="stylesheet">
+</head>
+<body>
+<div id="toast-container" class="position-fixed top-0 end-0 p-3" style="z-index:9999"></div>
+<div id="campus-navbar"></div>
+
+<div class="container mt-4">
+  <div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/index.html" class="btn btn-outline-secondary btn-sm">&larr; 返回首页</a>
+    <h4 class="page-header mb-0">我的发布</h4>
+  </div>
+  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3" id="productList"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/components.js"></script>
+<script>
+async function loadMyProducts() {
+  if (!API.user()) { showToast("请先登录", "error"); setTimeout(() => window.location.href="/login.html", 600); return; }
+
+  const container = document.getElementById("productList");
+  const res = await API.get("/api/products/my");
+
+  if (res.code !== 200) {
+    container.innerHTML = `<div class="col-12 empty-state">加载失败：${res.msg || "请稍后重试"}</div>`;
+    return;
+  }
+  if (res.data.length === 0) {
+    container.innerHTML = `<div class="col-12 empty-state">
+      你还没有发布过商品<br><a href="/product_publish.html" class="btn btn-primary mt-3">去发布</a></div>`;
+    return;
+  }
+
+  container.innerHTML = res.data.map(p => {
+    const cover = p.cover_image || "https://placehold.co/400x300/e2e8f0/64748b?text=No+Image";
+    const canDown = p.status === "已上架";
+    return `
+    <div class="col">
+      <div class="card h-100 shadow-sm">
+        <img src="${cover}" class="card-img-top" style="height:160px;object-fit:cover;cursor:pointer"
+             alt="${p.title}" onclick="location.href='/product_detail.html?id=${p.product_id}'">
+        <div class="card-body">
+          <h6 class="card-title text-truncate" style="cursor:pointer" onclick="location.href='/product_detail.html?id=${p.product_id}'">${p.title}</h6>
+          <p class="card-text">
+            <span class="text-danger fw-bold">¥${Number(p.price).toFixed(2)}</span>
+            <span class="status-badge status-${p.status} ms-2">${p.status}</span>
+          </p>
+          <small class="text-muted">${p.category_name || ''} · ${p.created_at ? new Date(p.created_at).toLocaleString() : ''}</small>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-between">
+          <small class="text-muted">浏览 ${p.view_count || 0}</small>
+          ${canDown
+            ? `<button class="btn btn-outline-secondary btn-sm" onclick="takeDown(${p.product_id})">下架</button>`
+            : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function takeDown(pid) {
+  if (!confirm("确定下架该商品吗？")) return;
+  const res = await API.put(`/api/products/${pid}/status`, { status: "已下架" });
+  showToast(res.msg, res.code === 200 ? "success" : "error");
+  if (res.code === 200) loadMyProducts();
+}
+
+document.addEventListener("DOMContentLoaded", loadMyProducts);
+</script>
+</body>
+</html>
