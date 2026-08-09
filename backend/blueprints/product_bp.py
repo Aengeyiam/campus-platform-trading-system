@@ -2,11 +2,45 @@
 商品蓝图：发布 / 列表 / 搜索 / 详情 / 收藏 / 图片
 负责人：熊倡
 """
+import os
+import time
+import random
 from flask import Blueprint, request
 from db import query, query_one, execute
-from auth import login_required
+from auth import login_required, verify_token
 
 product_bp = Blueprint("product", __name__)
+
+# 上传目录：backend/../frontend/uploads
+UPLOAD_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "frontend", "uploads",
+)
+ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+MAX_IMAGES = 5           # 单个商品最多图片数
+ALLOWED_CONDITIONS = ("全新", "几乎全新", "轻微使用", "正常使用")
+
+
+# ============================================================
+#  POST /api/products/upload   上传商品图片（multipart/form-data, 字段名 file）
+#  返回: { url: "/uploads/xxx.jpg" }
+# ============================================================
+@product_bp.route("/upload", methods=["POST"])
+@login_required
+def upload_image():
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return {"code": 400, "msg": "未选择文件"}, 400
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ALLOWED_EXT:
+        return {"code": 400, "msg": "仅支持 jpg/jpeg/png/gif/webp 格式"}, 400
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    # 文件名：p + 时间戳 + 4位随机数 + 扩展名，避免重名
+    fname = f"p{int(time.time())}{random.randint(1000, 9999)}{ext}"
+    file.save(os.path.join(UPLOAD_DIR, fname))
+    return {"code": 200, "data": {"url": f"/uploads/{fname}"}}
 
 
 # ============================================================
@@ -20,35 +54,79 @@ def categories():
 
 # ============================================================
 #  POST /api/products   发布商品
-#  body: { title, description, price, original_price?, category_id, condition }
+#  body: { title, description, price, original_price?, category_id, condition, images?: [url] }
 # ============================================================
 @product_bp.route("", methods=["POST"])
 @login_required
 def publish():
-    data = request.get_json()
+    data = request.get_json() or {}
     uid = request.g.current_user["user_id"]
 
     title = (data.get("title") or "").strip()
     description = (data.get("description") or "").strip()
-    price = data.get("price")
+    condition = (data.get("condition") or "").strip()
     category_id = data.get("category_id")
-    condition = data.get("condition")
 
-    if not all([title, description, price, category_id, condition]):
+    # ---- 必填项校验 ----
+    if not all([title, description, price := data.get("price"), category_id, condition]):
         return {"code": 400, "msg": "标题、描述、价格、分类、新旧程度不能为空"}, 400
 
-    execute(
+    # ---- 价格校验 ----
+    try:
+        price = float(price)
+    except (TypeError, ValueError):
+        return {"code": 400, "msg": "价格必须是数字"}, 400
+    if price <= 0:
+        return {"code": 400, "msg": "价格必须大于 0"}, 400
+
+    # 原价（可选）
+    original_price = data.get("original_price")
+    if original_price is not None and original_price != "":
+        try:
+            original_price = float(original_price)
+        except (TypeError, ValueError):
+            return {"code": 400, "msg": "原价必须是数字"}, 400
+        if original_price < 0:
+            return {"code": 400, "msg": "原价不能为负数"}, 400
+    else:
+        original_price = None
+
+    # ---- 分类校验 ----
+    try:
+        category_id = int(category_id)
+    except (TypeError, ValueError):
+        return {"code": 400, "msg": "分类参数错误"}, 400
+    if not query_one("SELECT category_id FROM categories WHERE category_id=%s", (category_id,)):
+        return {"code": 400, "msg": "所选分类不存在"}, 400
+
+    # ---- 新旧程度校验 ----
+    if condition not in ALLOWED_CONDITIONS:
+        return {"code": 400, "msg": "新旧程度取值不合法"}, 400
+
+    # ---- 图片校验 ----
+    images = data.get("images") or []
+    if not isinstance(images, list) or len(images) > MAX_IMAGES:
+        return {"code": 400, "msg": f"图片最多 {MAX_IMAGES} 张"}, 400
+    for url in images:
+        if not isinstance(url, str) or not url.startswith("/uploads/"):
+            return {"code": 400, "msg": "图片地址不合法"}, 400
+
+    # ---- 插入商品，返回 product_id ----
+    product = query_one(
         """INSERT INTO products (seller_id, category_id, title, description,
            price, original_price, condition, status)
-           VALUES (%s,%s,%s,%s,%s,%s,%s,'待审核')""",
-        (uid, category_id, title, description, price,
-         data.get("original_price"), condition),
+           VALUES (%s,%s,%s,%s,%s,%s,%s,'待审核')
+           RETURNING product_id""",
+        (uid, category_id, title, description, price, original_price, condition),
     )
 
-    # 插入图片（前端已上传，这里接收 URL 列表）
-    # product = query_one("SELECT product_id FROM products WHERE title=%s AND seller_id=%s ORDER BY created_at DESC LIMIT 1", (title, uid))
-    # for url in data.get("images", []):
-    #     execute("INSERT INTO product_images (product_id, image_url) VALUES (%s,%s)", (product["product_id"], url))
+    # ---- 图片入库：第一张为封面 ----
+    for i, url in enumerate(images):
+        execute(
+            """INSERT INTO product_images (product_id, image_url, is_cover, sort_order)
+               VALUES (%s, %s, %s, %s)""",
+            (product["product_id"], url, 1 if i == 0 else 0, i),
+        )
 
     return {"code": 200, "msg": "发布成功，等待管理员审核"}
 
@@ -143,7 +221,21 @@ def detail(pid):
         (pid,),
     )
 
-    return {"code": 200, "data": {**product, "images": images}}
+    # 当前用户是否已收藏（带 token 时判断）
+    favorited = False
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    if not token:
+        token = request.cookies.get("token", "")
+    if token:
+        payload = verify_token(token)
+        if payload:
+            fav = query_one(
+                "SELECT 1 FROM favorites WHERE user_id=%s AND product_id=%s",
+                (payload["user_id"], pid),
+            )
+            favorited = bool(fav)
+
+    return {"code": 200, "data": {**product, "images": images, "favorited": favorited}}
 
 
 # ============================================================
