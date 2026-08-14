@@ -76,18 +76,66 @@
 let currentCategory = "";
 let currentPage = 1;
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[c]));
+}
+
+function renderProductCardSafe(p) {
+  const cover = escapeHtml(p.cover_image || "");
+  return `
+    <div class="col">
+      <div class="card h-100 shadow-sm product-card" onclick="location.href='/product_detail.html?id=${p.product_id}'" style="cursor:pointer">
+        ${cover ? `<img src="${cover}" class="card-img-top" style="height:200px;object-fit:cover" alt="${escapeHtml(p.title)}">` : `<div class="card-img-top bg-light d-flex align-items-center justify-content-center text-muted" style="height:200px">暂无图片</div>`}
+        <div class="card-body">
+          <h6 class="card-title text-truncate">${escapeHtml(p.title)}</h6>
+          <p class="card-text">
+            <span class="text-danger fw-bold fs-5">¥${Number(p.price).toFixed(2)}</span>
+            <small class="text-muted ms-2">${escapeHtml(p.condition || "")}</small>
+          </p>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-between">
+          <small class="text-muted">${escapeHtml(p.seller_name || "")}</small>
+          <small>信用: <span class="text-success">${Number(p.seller_credit ?? 100)}</span></small>
+        </div>
+      </div>
+    </div>`;
+}
+
 async function loadCategories() {
   const list = document.getElementById("categoryList");
   const res = await API.get("/api/products/categories");
   if (res.code === 200 && res.data && res.data.length > 0) {
+    const childrenByParent = new Map();
     res.data.forEach(c => {
-      const a = document.createElement("a");
-      a.href = "#";
-      a.className = "list-group-item list-group-item-action";
-      a.dataset.cid = c.category_id;
-      a.textContent = c.category_name;
-      a.onclick = (e) => { e.preventDefault(); switchCategory(c.category_id, a); };
-      list.appendChild(a);
+      if (!c.parent_id) return;
+      if (!childrenByParent.has(c.parent_id)) childrenByParent.set(c.parent_id, []);
+      childrenByParent.get(c.parent_id).push(c);
+    });
+
+    res.data.filter(c => !c.parent_id).forEach(parent => {
+      const link = document.createElement("a");
+      link.href = "#";
+      link.className = "list-group-item list-group-item-action";
+      link.dataset.cid = parent.category_id;
+      link.textContent = parent.category_name;
+      link.onclick = (e) => { e.preventDefault(); switchCategory(parent.category_id, link); };
+      list.appendChild(link);
+
+      (childrenByParent.get(parent.category_id) || []).forEach(child => {
+        const childLink = document.createElement("a");
+        childLink.href = "#";
+        childLink.className = "list-group-item list-group-item-action ps-4 small";
+        childLink.dataset.cid = child.category_id;
+        childLink.textContent = child.category_name;
+        childLink.onclick = (e) => { e.preventDefault(); switchCategory(child.category_id, childLink); };
+        list.appendChild(childLink);
+      });
     });
   } else {
     // 分类加载失败/为空：给出可操作提示
@@ -125,7 +173,7 @@ async function loadProducts() {
 
   countEl.textContent = `共 ${res.data.total} 件商品`;
   if (res.data.items.length > 0) {
-    container.innerHTML = res.data.items.map(renderProductCard).join("");
+    container.innerHTML = res.data.items.map(renderProductCardSafe).join("");
   } else {
     container.innerHTML = `<div class="col-12 empty-state">暂无商品，去发布第一件闲置吧</div>`;
   }

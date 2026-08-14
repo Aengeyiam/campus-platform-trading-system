@@ -23,6 +23,16 @@
 <script src="/js/api.js"></script>
 <script src="/js/components.js"></script>
 <script>
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[c]));
+}
+
 async function loadFavorites() {
   if (!API.user()) { showToast("请先登录", "error"); setTimeout(() => window.location.href="/login.html", 600); return; }
 
@@ -40,18 +50,18 @@ async function loadFavorites() {
   }
 
   container.innerHTML = res.data.map(p => {
-    const cover = p.cover_image || "https://placehold.co/400x300/e2e8f0/64748b?text=No+Image";
+    const cover = escapeHtml(p.cover_image || "");
     return `
     <div class="col">
       <div class="card h-100 shadow-sm">
-        <img src="${cover}" class="card-img-top" style="height:160px;object-fit:cover;cursor:pointer"
-             alt="${p.title}" onclick="location.href='/product_detail.html?id=${p.product_id}'">
+        ${cover ? `<img src="${cover}" class="card-img-top" style="height:160px;object-fit:cover;cursor:pointer"
+             alt="${escapeHtml(p.title)}" onclick="location.href='/product_detail.html?id=${p.product_id}'">` : `<div class="card-img-top bg-light d-flex align-items-center justify-content-center text-muted" style="height:160px">暂无图片</div>`}
         <div class="card-body">
-          <h6 class="card-title text-truncate" style="cursor:pointer" onclick="location.href='/product_detail.html?id=${p.product_id}'">${p.title}</h6>
+          <h6 class="card-title text-truncate" style="cursor:pointer" onclick="location.href='/product_detail.html?id=${p.product_id}'">${escapeHtml(p.title)}</h6>
           <p class="card-text">
             <span class="text-danger fw-bold">¥${Number(p.price).toFixed(2)}</span>
-            <span class="status-badge status-${p.status} ms-2">${p.status}</span>
-            <span class="text-muted ms-2 small">${p.seller_name || ''}</span>
+            <span class="status-badge status-${escapeHtml(p.status)} ms-2">${escapeHtml(p.status)}</span>
+            <span class="text-muted ms-2 small">${escapeHtml(p.seller_name || '')}</span>
           </p>
         </div>
         <div class="card-footer bg-white text-end">
