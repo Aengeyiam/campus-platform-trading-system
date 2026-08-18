@@ -6,7 +6,7 @@
   交易完成 +2  |  5星 +3  |  4星 +2  |  3星 0  |  2星 -2  |  1星 -5  |  举报 -10
   需求规格书V1.0的旧值（+5/+5/+3/0/-3/-3/-10）已废弃，请勿使用。
 """
-from flask import Blueprint, request
+from flask import Blueprint, request, g
 from db import query, query_one, execute
 from auth import login_required
 
@@ -21,7 +21,7 @@ order_bp = Blueprint("order", __name__)
 @login_required
 def create_order():
     data = request.get_json()
-    buyer_id = request.g.current_user["user_id"]
+    buyer_id = g.current_user["user_id"]
     product_id = data.get("product_id")
 
     if not product_id:
@@ -67,7 +67,7 @@ def create_order():
 @order_bp.route("", methods=["GET"])
 @login_required
 def list_orders():
-    uid = request.g.current_user["user_id"]
+    uid = g.current_user["user_id"]
     role = request.args.get("role", "buyer")
     status = request.args.get("status", "").strip()
 
@@ -105,10 +105,15 @@ def list_orders():
 @order_bp.route("/<int:oid>", methods=["GET"])
 @login_required
 def detail(oid):
+    uid = g.current_user["user_id"]
+
     row = query_one(
-        """SELECT o.*, p.title AS product_title, p.seller_id, p.description AS product_desc,
-                  u_buyer.user_name AS buyer_name, u_buyer.student_id AS buyer_student_id,
-                  u_seller.user_name AS seller_name, u_seller.student_id AS seller_student_id
+        """SELECT o.*, p.title AS product_title, p.seller_id,
+                  p.description AS product_desc,
+                  u_buyer.user_name AS buyer_name,
+                  u_buyer.student_id AS buyer_student_id,
+                  u_seller.user_name AS seller_name,
+                  u_seller.student_id AS seller_student_id
            FROM orders o
            JOIN products p ON o.product_id = p.product_id
            JOIN users u_buyer ON o.buyer_id = u_buyer.user_id
@@ -116,8 +121,15 @@ def detail(oid):
            WHERE o.order_id = %s""",
         (oid,),
     )
+
     if not row:
         return {"code": 404, "msg": "订单不存在"}, 404
+
+    # 只有该订单的买家或卖家可以查看订单详情，
+    # 防止其他登录用户通过猜测 order_id 越权读取他人订单信息。
+    if uid != row["buyer_id"] and uid != row["seller_id"]:
+        return {"code": 403, "msg": "无权查看该订单"}, 403
+
     return {"code": 200, "data": row}
 
 
@@ -127,7 +139,7 @@ def detail(oid):
 @order_bp.route("/<int:oid>/pay", methods=["PUT"])
 @login_required
 def pay(oid):
-    uid = request.g.current_user["user_id"]
+    uid = g.current_user["user_id"]
 
     order = query_one(
         "SELECT order_id, buyer_id, amount, status FROM orders WHERE order_id=%s FOR UPDATE",
@@ -158,7 +170,7 @@ def pay(oid):
 @order_bp.route("/<int:oid>/confirm", methods=["PUT"])
 @login_required
 def confirm(oid):
-    uid = request.g.current_user["user_id"]
+    uid = g.current_user["user_id"]
 
     order = query_one(
         "SELECT order_id, buyer_id, status FROM orders WHERE order_id=%s FOR UPDATE",
@@ -188,7 +200,7 @@ def confirm(oid):
 @order_bp.route("/<int:oid>/cancel", methods=["PUT"])
 @login_required
 def cancel(oid):
-    uid = request.g.current_user["user_id"]
+    uid = g.current_user["user_id"]
     reason = (request.get_json() or {}).get("reason", "")
 
     order = query_one(
@@ -222,7 +234,7 @@ def cancel(oid):
 @login_required
 def submit_review():
     data = request.get_json()
-    uid = request.g.current_user["user_id"]
+    uid = g.current_user["user_id"]
     order_id = data.get("order_id")
     rating = data.get("rating")
     comment = data.get("comment", "")
@@ -243,7 +255,10 @@ def submit_review():
         return {"code": 400, "msg": "仅已完成订单可评价"}, 400
 
     # 确定 reviewer_id 和 reviewee_id
-    product = query_one("SELECT seller_id FROM products WHERE product_id=%s", (order["product_id"],))
+    product = query_one(
+        "SELECT seller_id FROM products WHERE product_id=%s",
+        (order["product_id"],),
+    )
     if uid == order["buyer_id"]:
         reviewee_id = product["seller_id"]
     elif uid == product["seller_id"]:

@@ -18,7 +18,7 @@ class Config:
     DB_PORT = int(os.getenv("DB_PORT", "15432"))
     DB_NAME = "campus_trade"
     DB_USER = "campus_admin"
-    DB_PASSWORD = "your_password_here"
+    DB_PASSWORD = "password"
 
     # ---- 数据库连接优化 ----
     DB_DRIVER = os.getenv("DB_DRIVER", "psycopg2")

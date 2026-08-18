@@ -74,44 +74,123 @@ async function loadOrders() {
 }
 
 function actionButtons(o) {
-  const btn = (label, cls, fn) => `<button class="btn btn-sm ${cls}" onclick="${fn}">${label}</button>`;
+  const btn = (label, cls, fn) =>
+    `<button class="btn btn-sm ${cls}" onclick="${fn}">${label}</button>`;
+
   if (currentRole === "seller") return "";
 
-  if (o.status === "待付款") return btn("付款", "btn-warning", `pay(${o.order_id})`) + " " + btn("取消", "btn-outline-danger", `cancel(${o.order_id})`);
-  if (o.status === "已支付") return btn("确认收货", "btn-success", `confirm(${o.order_id})`);
-  if (o.status === "已完成") return btn("评价", "btn-outline-primary", `review(${o.order_id})`);
+  if (o.status === "待付款") {
+    return (
+      btn("付款", "btn-warning", `pay(${o.order_id})`) +
+      " " +
+      btn("取消", "btn-outline-danger", `cancel(${o.order_id})`)
+    );
+  }
+
+  if (o.status === "已支付") {
+    return btn(
+      "确认收货",
+      "btn-success",
+      `confirmOrder(${o.order_id})`
+    );
+  }
+
+  if (o.status === "已完成") {
+    return btn(
+      "评价",
+      "btn-outline-primary",
+      `review(${o.order_id})`
+    );
+  }
+
   return "";
 }
 
+
 async function pay(oid) {
-  if (!confirm("确认模拟付款？")) return;
+  if (!window.confirm("确认模拟付款？")) return;
+
   const res = await API.put(`/api/orders/${oid}/pay`);
-  showToast(res.msg, res.code === 200 ? "success" : "error");
-  loadOrders();
+
+  showToast(
+    res.msg,
+    res.code === 200 ? "success" : "error"
+  );
+
+  await loadOrders();
 }
 
-async function confirm(oid) {
-  if (!confirm("确认收货？收货后无法撤销。")) return;
+
+async function confirmOrder(oid) {
+  if (!window.confirm("确认收货？收货后无法撤销。")) return;
+
   const res = await API.put(`/api/orders/${oid}/confirm`);
-  showToast(res.msg, res.code === 200 ? "success" : "error");
-  loadOrders();
+
+  showToast(
+    res.msg,
+    res.code === 200 ? "success" : "error"
+  );
+
+  await loadOrders();
 }
+
 
 async function cancel(oid) {
-  const reason = prompt("取消原因（选填）：");
-  const res = await API.put(`/api/orders/${oid}/cancel`, { reason });
-  showToast(res.msg, res.code === 200 ? "success" : "error");
-  loadOrders();
+  const reason = window.prompt("取消原因（选填）：");
+
+  // 用户点击“取消”时，不执行取消订单操作
+  if (reason === null) return;
+
+  const res = await API.put(
+    `/api/orders/${oid}/cancel`,
+    { reason }
+  );
+
+  showToast(
+    res.msg,
+    res.code === 200 ? "success" : "error"
+  );
+
+  await loadOrders();
 }
 
+
 async function review(oid) {
-  const rating = prompt("请评分 (1-5)：");
-  if (!rating || rating < 1 || rating > 5) return;
-  const comment = prompt("评语（选填）：") || "";
-  const res = await API.post("/api/orders/reviews", { order_id: oid, rating: parseInt(rating), comment });
-  showToast(res.msg, res.code === 200 ? "success" : "error");
-  loadOrders();
+  const rating = window.prompt("请评分 (1-5)：");
+
+  if (rating === null || rating === "") return;
+
+  const ratingNumber = Number(rating);
+
+  if (
+    !Number.isInteger(ratingNumber) ||
+    ratingNumber < 1 ||
+    ratingNumber > 5
+  ) {
+    showToast("评分必须是 1-5 的整数", "error");
+    return;
+  }
+
+  const comment =
+    window.prompt("评语（选填）：") ?? "";
+
+  const res = await API.post(
+    "/api/orders/reviews",
+    {
+      order_id: oid,
+      rating: ratingNumber,
+      comment
+    }
+  );
+
+  showToast(
+    res.msg,
+    res.code === 200 ? "success" : "error"
+  );
+
+  await loadOrders();
 }
+
 
 // 事件绑定
 document.querySelectorAll("#orderTabs a").forEach(a => {
