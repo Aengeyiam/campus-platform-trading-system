@@ -527,6 +527,72 @@ def execute(
                 _release_connection(conn)
 
 
+def execute_returning(
+    sql: str,
+    params: tuple = None,
+) -> dict | None:
+    """
+    执行 INSERT / UPDATE / DELETE ... RETURNING，提交事务并返回第一行。
+
+    注意：
+    query()/query_one() 只用于只读查询（内部用 rollback 结束事务），
+    任何带 RETURNING 的写操作必须走本函数，否则数据会被回滚、不会落库。
+    """
+
+    if _backend() == "jdbc":
+        # JDBC 的 _jdbc_query 会提交事务，语义一致
+        rows = _jdbc_query(sql, params)
+
+        return rows[0] if rows else None
+
+    conn = None
+    broken = False
+
+    try:
+        conn = _get_healthy_pg_connection()
+
+        with conn.cursor(
+            cursor_factory=psycopg2.extras.RealDictCursor
+        ) as cur:
+
+            cur.execute(
+                sql,
+                params,
+            )
+
+            row = cur.fetchone()
+
+        conn.commit()
+
+        return row
+
+    except (
+        psycopg2.OperationalError,
+        psycopg2.InterfaceError,
+    ):
+        broken = True
+
+        raise
+
+    except Exception:
+
+        if conn is not None:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
+        raise
+
+    finally:
+
+        if conn is not None:
+            if broken:
+                _discard_pg_connection(conn)
+            else:
+                _release_connection(conn)
+
+
 def call_proc(
     proc_name: str,
     params: tuple = None,

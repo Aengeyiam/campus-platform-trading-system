@@ -82,7 +82,14 @@ function escapeHtml(value) {
 
 async function loadCategories() {
   const sel = document.getElementById("categorySelect");
-  const res = await API.get("/api/products/categories");
+  let res;
+  try {
+    res = await API.get("/api/products/categories");
+  } catch (err) {
+    sel.innerHTML = '<option value="">分类加载失败</option>';
+    showToast("分类加载失败，请检查后端是否运行", "error");
+    return;
+  }
   if (res.code === 200 && res.data && res.data.length > 0) {
     res.data.forEach(c => {
       const option = document.createElement("option");
@@ -90,12 +97,14 @@ async function loadCategories() {
       option.textContent = c.category_name;
       sel.appendChild(option);
     });
+  } else if (res.code === 200) {
+    // 接口通了但分类表为空
+    sel.innerHTML = '<option value="">暂无分类，请联系管理员初始化</option>';
+    showToast("暂无商品分类", "error");
   } else {
-    // 分类加载失败/为空：给出可操作提示，避免出现"无选项"的空下拉
-    sel.innerHTML = res.code === 200
-      ? '<option value="">暂无分类，请联系管理员初始化</option>'
-      : `<option value="">分类加载失败</option>`;
-    showToast(res.code === 200 ? "暂无商品分类" : "分类加载失败，请检查后端或数据库", "error");
+    // 接口报错：后端连不上库 / SQL 出错等
+    sel.innerHTML = '<option value="">分类加载失败</option>';
+    showToast(res.msg || "分类加载失败，请检查后端或数据库", "error");
   }
 }
 

@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, g, request
 from config import Config
-from db import query, query_one, execute
+from db import query, query_one, execute, execute_returning
 from auth import login_required, verify_token
 
 product_bp = Blueprint("product", __name__)
@@ -165,7 +165,9 @@ def publish():
         seen_urls.add(url)
 
     # ---- 插入商品，返回 product_id ----
-    product = query_one(
+    # 注意：必须用 execute_returning（内部提交事务）。
+    # 若用 query_one，INSERT 会被 db.query 里的 rollback 回滚，商品不会落库。
+    product = execute_returning(
         """INSERT INTO products (seller_id, category_id, title, description,
            price, original_price, condition, status)
            VALUES (%s,%s,%s,%s,%s,%s,%s,'待审核')
