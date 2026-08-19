@@ -91,12 +91,15 @@ def login():
         return {"code": 400, "msg": "学号或密码不能为空"}, 400
 
     hashed = hash_password(password)
+    # 一个用户可能有多个角色（如学生+管理员），
+    # 必须让“管理员”排第一，query_one 才能取到管理员角色。
     user = query_one(
         """SELECT u.user_id, u.student_id, u.user_name, u.status, r.role_name
            FROM users u
            JOIN user_roles ur ON u.user_id = ur.user_id
            JOIN roles r ON ur.role_id = r.role_id
-           WHERE u.student_id = %s AND u.password = %s""",
+           WHERE u.student_id = %s AND u.password = %s
+           ORDER BY CASE WHEN r.role_name = '管理员' THEN 0 ELSE 1 END, ur.role_id""",
         (student_id, hashed),
     )
 
