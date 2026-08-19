@@ -2,7 +2,7 @@
 失物招领蓝图：发布 / 列表 / 详情 / 编辑 / 关闭 / 认领申请
 负责人：王旭坤
 """
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 from db import query, query_one, execute
 from auth import login_required
 
@@ -17,7 +17,7 @@ lostfound_bp = Blueprint("lostfound", __name__)
 @login_required
 def publish():
     data = request.get_json()
-    uid = request.g.current_user["user_id"]
+    uid = g.current_user["user_id"]
 
     required = ["type", "title", "description", "location", "lf_date", "contact"]
     for f in required:
@@ -94,7 +94,7 @@ def detail(lid):
 @login_required
 def edit(lid):
     data = request.get_json()
-    uid = request.g.current_user["user_id"]
+    uid = g.current_user["user_id"]
 
     lf = query_one("SELECT publisher_id FROM lost_found WHERE lf_id=%s", (lid,))
     if not lf:
@@ -117,7 +117,7 @@ def edit(lid):
 @lostfound_bp.route("/<int:lid>/close", methods=["PUT"])
 @login_required
 def close(lid):
-    uid = request.g.current_user["user_id"]
+    uid = g.current_user["user_id"]
     lf = query_one("SELECT publisher_id FROM lost_found WHERE lf_id=%s", (lid,))
     if not lf:
         return {"code": 404, "msg": "记录不存在"}, 404
@@ -139,7 +139,7 @@ def close(lid):
 def my_list():
     rows = query(
         "SELECT * FROM lost_found WHERE publisher_id=%s ORDER BY created_at DESC",
-        (request.g.current_user["user_id"],),
+        (g.current_user["user_id"],),
     )
     return {"code": 200, "data": rows}
 
@@ -152,7 +152,7 @@ def my_list():
 @login_required
 def submit_claim():
     data = request.get_json()
-    uid = request.g.current_user["user_id"]
+    uid = g.current_user["user_id"]
     lf_id = data.get("lf_id")
     desc = (data.get("description") or "").strip()
 
@@ -185,7 +185,7 @@ def my_claims():
            JOIN lost_found lf ON cr.lf_id = lf.lf_id
            WHERE cr.claimant_id = %s
            ORDER BY cr.created_at DESC""",
-        (request.g.current_user["user_id"],),
+        (g.current_user["user_id"],),
     )
     return {"code": 200, "data": rows}
 

@@ -3,7 +3,7 @@
 负责人：刘子懿
 所有接口均需 admin_required
 """
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 from db import query, query_one, execute
 from auth import admin_required
 
@@ -38,7 +38,7 @@ def audit_product(pid):
     data = request.get_json()
     result = data.get("result")
     remark = data.get("remark", "")
-    auditor_id = request.g.current_user["user_id"]
+    auditor_id = g.current_user["user_id"]
 
     if result not in ("通过", "驳回"):
         return {"code": 400, "msg": "审核结果只能是'通过'或'驳回'"}, 400
@@ -84,7 +84,7 @@ def audit_claim(cid):
     data = request.get_json()
     result = data.get("result")
     remark = data.get("remark", "")
-    auditor_id = request.g.current_user["user_id"]
+    auditor_id = g.current_user["user_id"]
 
     if result not in ("通过", "拒绝"):
         return {"code": 400, "msg": "审核结果只能是'通过'或'拒绝'"}, 400
@@ -151,7 +151,7 @@ def toggle_user(uid):
     execute(
         """INSERT INTO audit_logs (auditor_id, audit_type, target_id, result, remark)
            VALUES (%s, '用户管理', %s, %s, '')""",
-        (request.g.current_user["user_id"], uid, action),
+        (g.current_user["user_id"], uid, action),
     )
     return {"code": 200, "msg": f"已{action}"}
 
@@ -190,7 +190,7 @@ def handle_report(rid):
     data = request.get_json()
     result = data.get("result")
     handle_result = data.get("handle_result", "")
-    auditor_id = request.g.current_user["user_id"]
+    auditor_id = g.current_user["user_id"]
 
     if result not in ("已处理", "已驳回"):
         return {"code": 400, "msg": "处理结果只能是'已处理'或'已驳回'"}, 400
