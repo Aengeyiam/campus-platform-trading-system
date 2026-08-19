@@ -33,16 +33,19 @@ app.register_blueprint(stats_bp,     url_prefix="/api/stats")
 
 
 # ---- 前端静态页面 ----
+STATIC_EXT = (".html", ".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico")
+
+
 @app.route("/")
 @app.route("/<path:filename>")
 def serve_frontend(filename="index.html"):
-    """将 frontend/ 目录下的 .html 文件当静态页面提供"""
+    """将 frontend/ 目录下的页面/静态资源/上传图片当静态文件提供"""
     path = "../frontend"
-    # admin/ 子目录支持
-    if filename.endswith(".html") or filename.endswith(".css") or filename.endswith(".js"):
+    # 页面、样式、脚本以及上传目录下的图片均放行
+    if filename.endswith(STATIC_EXT) or filename.startswith("uploads/"):
         return send_from_directory(path, filename)
     # 默认返回 index.html
-    return send_from_directory(path, "login.html")
+    return send_from_directory(path, "index.html")
 
 
 # ---- 错误处理 ----

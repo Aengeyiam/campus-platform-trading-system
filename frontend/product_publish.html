@@ -12,6 +12,7 @@
 <div id="campus-navbar"></div>
 
 <div class="container mt-4" style="max-width:680px">
+  <a href="/index.html" class="btn btn-outline-secondary btn-sm">&larr; 返回首页</a>
   <h4 class="page-header">发布二手商品</h4>
   <div class="card shadow-sm">
     <div class="card-body p-4">
@@ -49,6 +50,12 @@
             </select>
           </div>
         </div>
+        <div class="mb-3">
+          <label class="form-label">商品图片 <span class="text-muted small">（最多 5 张，第一张为封面）</span></label>
+          <input type="file" id="imageInput" class="form-control" accept=".jpg,.jpeg,.png,.gif,.webp" multiple>
+          <div class="d-flex flex-wrap gap-2 mt-2" id="imagePreview"></div>
+          <div class="form-text">支持 jpg / png / gif / webp，单张不超过 16MB</div>
+        </div>
         <button type="submit" class="btn btn-primary w-100">提交审核</button>
       </form>
     </div>
@@ -59,14 +66,102 @@
 <script src="/js/api.js"></script>
 <script src="/js/components.js"></script>
 <script>
+const MAX_IMAGES = 5;
+let uploadedImages = [];   // 已上传成功的图片 URL 列表
+let uploading = false;     // 是否正在上传
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[c]));
+}
+
 async function loadCategories() {
-  const res = await API.get("/api/products/categories");
-  if (res.code === 200) {
-    const sel = document.getElementById("categorySelect");
-    res.data.forEach(c => {
-      sel.innerHTML += `<option value="${c.category_id}">${c.category_name}</option>`;
-    });
+  const sel = document.getElementById("categorySelect");
+  let res;
+  try {
+    res = await API.get("/api/products/categories");
+  } catch (err) {
+    sel.innerHTML = '<option value="">分类加载失败</option>';
+    showToast("分类加载失败，请检查后端是否运行", "error");
+    return;
   }
+  if (res.code === 200 && res.data && res.data.length > 0) {
+    res.data.forEach(c => {
+      const option = document.createElement("option");
+      option.value = c.category_id;
+      option.textContent = c.category_name;
+      sel.appendChild(option);
+    });
+  } else if (res.code === 200) {
+    // 接口通了但分类表为空
+    sel.innerHTML = '<option value="">暂无分类，请联系管理员初始化</option>';
+    showToast("暂无商品分类", "error");
+  } else {
+    // 接口报错：后端连不上库 / SQL 出错等
+    sel.innerHTML = '<option value="">分类加载失败</option>';
+    showToast(res.msg || "分类加载失败，请检查后端或数据库", "error");
+  }
+}
+
+/* ========== 图片选择与上传 ========== */
+document.getElementById("imageInput").addEventListener("change", async (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length === 0) return;
+  if (!API.user()) { showToast("请先登录", "error"); return; }
+
+  const remain = MAX_IMAGES - uploadedImages.length;
+  if (remain <= 0) { showToast(`最多上传 ${MAX_IMAGES} 张图片`, "error"); return; }
+  const chosen = files.slice(0, remain);
+  e.target.value = "";
+
+  for (const file of chosen) {
+    if (file.size > 16 * 1024 * 1024) { showToast(`${file.name} 超过 16MB，已跳过`, "error"); continue; }
+    if (uploading) return;
+
+    uploading = true;
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/products/upload", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + API.token() },
+        body: fd,
+      }).then(r => r.json());
+
+      if (res.code === 200) {
+        uploadedImages.push(res.data.url);
+        renderPreview();
+      } else {
+        showToast(res.msg || "上传失败", "error");
+      }
+    } catch (err) {
+      showToast("上传失败，请重试", "error");
+    } finally {
+      uploading = false;
+    }
+  }
+});
+
+/* 渲染缩略图预览（第一张标记为封面） */
+function renderPreview() {
+  const box = document.getElementById("imagePreview");
+  box.innerHTML = uploadedImages.map((url, i) => `
+    <div class="position-relative" style="width:80px;height:80px">
+      <img src="${escapeHtml(url)}" class="rounded border w-100 h-100" style="object-fit:cover" alt="图片${i + 1}">
+      ${i === 0 ? '<span class="badge text-bg-primary position-absolute top-0 start-0" style="font-size:10px">封面</span>' : ''}
+      <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 bg-danger rounded-circle p-1"
+              style="font-size:10px" onclick="removeImage(${i})" aria-label="删除"></button>
+    </div>`).join("");
+}
+
+function removeImage(i) {
+  uploadedImages.splice(i, 1);
+  renderPreview();
 }
 
 document.getElementById("publishForm").addEventListener("submit", async (e) => {
@@ -75,26 +170,46 @@ document.getElementById("publishForm").addEventListener("submit", async (e) => {
   const btn = e.target.querySelector("button");
   btn.disabled = true; btn.textContent = "提交中...";
 
-  const data = {
-    title: e.target.title.value.trim(),
-    description: e.target.description.value.trim(),
-    price: parseFloat(e.target.price.value),
-    original_price: e.target.original_price.value ? parseFloat(e.target.original_price.value) : null,
-    category_id: parseInt(e.target.category_id.value),
-    condition: e.target.condition.value,
-  };
+  try {
+    const categoryId = parseInt(e.target.category_id.value, 10);
+    if (!categoryId) {
+      showToast("请选择分类", "error");
+      return;
+    }
 
-  const res = await API.post("/api/products", data);
-  if (res.code === 200) {
-    showToast("发布成功，等待管理员审核");
-    setTimeout(() => window.location.href = "/index.html", 800);
-  } else {
-    showToast(res.msg, "error");
+    const data = {
+      title: e.target.title.value.trim(),
+      description: e.target.description.value.trim(),
+      price: parseFloat(e.target.price.value),
+      original_price: e.target.original_price.value ? parseFloat(e.target.original_price.value) : null,
+      category_id: categoryId,
+      condition: e.target.condition.value,
+      images: uploadedImages,
+    };
+
+    const res = await API.post("/api/products", data);
+    if (res.code === 200) {
+      showToast("发布成功，等待管理员审核");
+      setTimeout(() => window.location.href = "/index.html", 800);
+    } else {
+      showToast(res.msg, "error");
+    }
+  } catch (err) {
+    showToast("提交失败，请重试", "error");
+  } finally {
+    btn.disabled = false; btn.textContent = "提交审核";
   }
-  btn.disabled = false; btn.textContent = "提交审核";
 });
 
-document.addEventListener("DOMContentLoaded", loadCategories);
+document.addEventListener("DOMContentLoaded", () => {
+  // 发布商品需登录：未登录跳转登录页
+  if (!API.user()) {
+    showToast("请先登录", "error");
+    setTimeout(() => window.location.href = "/login.html", 600);
+    return;
+  }
+  loadCategories();
+});
 </script>
 </body>
 </html>
