@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 本地配置（含数据库密码，不要上传）
+backend/config_local.py
+
+# 上传文件目录
+frontend/uploads/

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的订单 - 校园二手交易</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/style.css" rel="stylesheet">
+</head>
+<body>
+<div id="toast-container" class="position-fixed top-0 end-0 p-3" style="z-index:9999"></div>
+<div id="campus-navbar"></div>
+
+<div class="container mt-4">
+  <h4 class="page-header">我的订单</h4>
+
+  <!-- Tab/操作栏 -->
+  <ul class="nav nav-tabs mb-3" id="orderTabs">
+    <li class="nav-item"><a class="nav-link active" href="#" data-role="buyer">我买的</a></li>
+    <li class="nav-item"><a class="nav-link" href="#" data-role="seller">我卖的</a></li>
+  </ul>
+
+  <div class="btn-group btn-group-sm mb-3" id="statusFilter">
+    <button class="btn btn-outline-secondary active" data-status="">全部</button>
+    <button class="btn btn-outline-warning" data-status="待付款">待付款</button>
+    <button class="btn btn-outline-info" data-status="已支付">已支付</button>
+    <button class="btn btn-outline-success" data-status="已完成">已完成</button>
+    <button class="btn btn-outline-danger" data-status="已取消">已取消</button>
+  </div>
+
+  <div id="orderList"></div>
+</div>
+
+<!-- 评价弹窗 -->
+<div class="modal fade" id="reviewModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">评价这次交易</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center mb-3">
+          <div class="text-muted mb-2">请选择评分</div>
+          <div class="stars justify-content-center" id="ratingStars">
+            <span class="star" data-v="1">★</span>
+            <span class="star" data-v="2">★</span>
+            <span class="star" data-v="3">★</span>
+            <span class="star" data-v="4">★</span>
+            <span class="star" data-v="5">★</span>
+          </div>
+          <div class="text-muted small mt-1" id="ratingLabel">点击星星评分</div>
+        </div>
+        <label class="form-label">评语（选填）</label>
+        <textarea id="reviewComment" class="form-control" rows="3" maxlength="500" placeholder="说说这次交易的体验吧"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" onclick="submitReview()">提交评价</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/components.js"></script>
+<script>
+let currentRole = "buyer";
+let currentStatus = "";
+
+async function loadOrders() {
+  if (!API.user()) { window.location.href = "/login.html"; return; }
+  const params = { role: currentRole };
+  if (currentStatus) params.status = currentStatus;
+
+  const res = await API.get("/api/orders", params);
+  const container = document.getElementById("orderList");
+  if (res.code !== 200 || !res.data.length) {
+    container.innerHTML = '<div class="empty-state">暂无订单</div>';
+    return;
+  }
+
+  container.innerHTML = res.data.map(o => `
+    <div class="card shadow-sm mb-2">
+      <div class="card-body d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-3">
+          ${o.cover_image ? `<img src="${o.cover_image}" width="60" height="60" style="object-fit:cover" class="rounded">` : ''}
+          <div>
+            <strong>${o.product_title}</strong>
+            <div class="text-muted small">
+              ${currentRole === 'seller'
+                ? `买家: <a href="/user_profile.html?id=${o.buyer_id}" class="seller-link">${o.buyer_name}</a>`
+                : `卖家: <a href="/user_profile.html?id=${o.seller_id}" class="seller-link">${o.seller_name}</a>`}
+              &nbsp;|&nbsp; ¥${Number(o.amount).toFixed(2)}
+              &nbsp;|&nbsp; ${new Date(o.created_at).toLocaleString()}
+            </div>
+          </div>
+        </div>
+        <div class="text-end">
+          <span class="status-badge status-${o.status}">${o.status}</span>
+          <div class="mt-2">${actionButtons(o)}</div>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function actionButtons(o) {
+  const btn = (label, cls, fn) =>
+    `<button class="btn btn-sm ${cls}" onclick="${fn}">${label}</button>`;
+
+  if (currentRole === "seller") return "";
+
+  if (o.status === "待付款") {
+    return (
+      btn("付款", "btn-warning", `pay(${o.order_id})`) +
+      " " +
+      btn("取消", "btn-outline-danger", `cancel(${o.order_id})`)
+    );
+  }
+
+  if (o.status === "已支付") {
+    return btn(
+      "确认收货",
+      "btn-success",
+      `confirmOrder(${o.order_id})`
+    );
+  }
+
+  if (o.status === "已完成") {
+    return btn(
+      "评价",
+      "btn-outline-primary",
+      `review(${o.order_id})`
+    );
+  }
+
+  return "";
+}
+
+
+async function pay(oid) {
+  if (!window.confirm("确认模拟付款？")) return;
+
+  const res = await API.put(`/api/orders/${oid}/pay`);
+
+  showToast(
+    res.msg,
+    res.code === 200 ? "success" : "error"
+  );
+
+  await loadOrders();
+}
+
+
+async function confirmOrder(oid) {
+  if (!window.confirm("确认收货？收货后无法撤销。")) return;
+
+  const res = await API.put(`/api/orders/${oid}/confirm`);
+
+  if (res.code === 200) {
+    showToast("收货成功，可以评价这次交易啦");
+    await loadOrders();
+    // 收货成功后直接弹出评价窗口，用户可立即评价，也可关闭后稍后评价
+    review(oid);
+  } else {
+    showToast(res.msg, "error");
+    await loadOrders();
+  }
+}
+
+
+async function cancel(oid) {
+  const reason = window.prompt("取消原因（选填）：");
+
+  // 用户点击“取消”时，不执行取消订单操作
+  if (reason === null) return;
+
+  const res = await API.put(
+    `/api/orders/${oid}/cancel`,
+    { reason }
+  );
+
+  showToast(
+    res.msg,
+    res.code === 200 ? "success" : "error"
+  );
+
+  await loadOrders();
+}
+
+
+let currentReviewOrder = null;
+let currentRating = 0;
+
+function review(oid) {
+  currentReviewOrder = oid;
+  currentRating = 0;
+  document.getElementById("reviewComment").value = "";
+  document.querySelectorAll("#ratingStars .star").forEach(s => s.classList.remove("active"));
+  document.getElementById("ratingLabel").textContent = "点击星星评分";
+  new bootstrap.Modal(document.getElementById("reviewModal")).show();
+}
+
+// 星级点选
+document.querySelectorAll("#ratingStars .star").forEach(s => {
+  s.addEventListener("click", () => {
+    currentRating = Number(s.dataset.v);
+    document.querySelectorAll("#ratingStars .star").forEach(x => {
+      x.classList.toggle("active", Number(x.dataset.v) <= currentRating);
+    });
+    const labels = ["", "很差", "较差", "一般", "满意", "非常满意"];
+    document.getElementById("ratingLabel").textContent = labels[currentRating];
+  });
+});
+
+async function submitReview() {
+  if (!currentRating) { showToast("请先选择评分", "error"); return; }
+  const comment = document.getElementById("reviewComment").value.trim();
+
+  const res = await API.post(
+    "/api/orders/reviews",
+    {
+      order_id: currentReviewOrder,
+      rating: currentRating,
+      comment
+    }
+  );
+
+  if (res.code === 200) {
+    bootstrap.Modal.getInstance(document.getElementById("reviewModal")).hide();
+    showToast(res.msg);
+    await loadOrders();
+  } else {
+    showToast(res.msg, "error");
+  }
+}
+
+
+// 事件绑定
+document.querySelectorAll("#orderTabs a").forEach(a => {
+  a.addEventListener("click", (e) => {
+    e.preventDefault();
+    document.querySelectorAll("#orderTabs a").forEach(x => x.classList.remove("active"));
+    a.classList.add("active");
+    currentRole = a.dataset.role;
+    loadOrders();
+  });
+});
+
+document.querySelectorAll("#statusFilter button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#statusFilter button").forEach(x => x.classList.remove("active"));
+    btn.classList.add("active");
+    currentStatus = btn.dataset.status;
+    loadOrders();
+  });
+});
+
+document.addEventListener("DOMContentLoaded", loadOrders);
+</script>
+</body>
+</html>
