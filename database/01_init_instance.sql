@@ -574,17 +574,17 @@ BEGIN
         INSERT INTO credit_records (user_id, change_type, change_value, score_after, related_id, remark)
         VALUES (NEW.buyer_id, '交易完成', 2, v_credit_new, NEW.order_id, '买家完成订单，信用分+2');
 
-        -- 3. 卖家信用分 +1（成功售出奖励）
+        -- 3. 卖家信用分 +2（成功售出奖励，V1.1 与 02 修复脚本一致）
         SELECT seller_id INTO v_seller_id FROM products WHERE product_id = NEW.product_id;
 
         UPDATE users
-           SET credit_score = credit_score + 1,
+           SET credit_score = credit_score + 2,
                updated_at   = CURRENT_TIMESTAMP
          WHERE user_id = v_seller_id
          RETURNING credit_score INTO v_credit_new;
 
         INSERT INTO credit_records (user_id, change_type, change_value, score_after, related_id, remark)
-        VALUES (v_seller_id, '交易完成', 1, v_credit_new, NEW.order_id, '卖家商品售出，信用分+1');
+        VALUES (v_seller_id, '交易完成', 2, v_credit_new, NEW.order_id, '卖家商品售出，信用分+2');
 
         -- 4. 记录订单完成时间
         NEW.completed_at = CURRENT_TIMESTAMP;
@@ -615,14 +615,14 @@ DECLARE
     v_score_after  INTEGER;
     v_change_type  VARCHAR(30);
 BEGIN
-    -- 根据评分计算信用分变动值
-    -- 5分 → +3, 4分 → +2, 3分 → 0, 2分 → -1, 1分 → -2
+    -- 根据评分计算信用分变动值（V1.1 与 02 修复脚本一致）
+    -- 5分 → +3, 4分 → +2, 3分 → 0, 2分 → -2, 1分 → -5
     v_change_value := CASE NEW.rating
         WHEN 5 THEN 3
         WHEN 4 THEN 2
         WHEN 3 THEN 0
-        WHEN 2 THEN -1
-        WHEN 1 THEN -2
+        WHEN 2 THEN -2
+        WHEN 1 THEN -5
         ELSE 0
     END;
 

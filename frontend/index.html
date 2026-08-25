@@ -15,10 +15,11 @@
   <!-- 顶部横幅 -->
   <div class="row mb-4">
     <div class="col-12">
-      <div class="bg-primary text-white rounded-3 p-4 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div class="hero-banner p-4 p-md-5 d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div>
-          <h4 class="mb-1 fw-bold">校园二手交易与失物招领</h4>
-          <div class="opacity-75">闲置再利用 · 绿色环保 · 校园专属交易平台</div>
+          <div class="hero-tag mb-2">🏫 我们共同的家园</div>
+          <h3 class="mb-2 fw-bold">欢迎回到校园集市</h3>
+          <div class="opacity-90">让闲置流动起来，让温暖在同学之间传递</div>
         </div>
         <div class="d-flex gap-2 flex-wrap">
           <a href="/product_publish.html" class="btn btn-light fw-semibold">发布闲置</a>
@@ -93,15 +94,15 @@ function renderProductCardSafe(p) {
       <div class="card h-100 shadow-sm product-card" onclick="location.href='/product_detail.html?id=${p.product_id}'" style="cursor:pointer">
         ${cover ? `<img src="${cover}" class="card-img-top" style="height:200px;object-fit:cover" alt="${escapeHtml(p.title)}">` : `<div class="card-img-top bg-light d-flex align-items-center justify-content-center text-muted" style="height:200px">暂无图片</div>`}
         <div class="card-body">
-          <h6 class="card-title text-truncate">${escapeHtml(p.title)}</h6>
-          <p class="card-text">
-            <span class="text-danger fw-bold fs-5">¥${Number(p.price).toFixed(2)}</span>
+          <h6 class="card-title text-truncate mb-1">${escapeHtml(p.title)}</h6>
+          <p class="card-text mb-0">
+            <span class="price-tag fs-5">¥${Number(p.price).toFixed(2)}</span>
             <small class="text-muted ms-2">${escapeHtml(p.condition || "")}</small>
           </p>
         </div>
-        <div class="card-footer bg-white d-flex justify-content-between">
-          <small class="text-muted">${escapeHtml(p.seller_name || "")}</small>
-          <small>信用: <span class="text-success">${Number(p.seller_credit ?? 100)}</span></small>
+        <div class="card-footer d-flex justify-content-between">
+          <a href="/user_profile.html?id=${p.seller_id}" class="seller-link" onclick="event.stopPropagation()">${escapeHtml(p.seller_name || "")}</a>
+          <small>信用 <span class="text-success fw-semibold">${Number(p.seller_credit ?? 100)}</span></small>
         </div>
       </div>
     </div>`;

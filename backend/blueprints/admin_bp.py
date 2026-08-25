@@ -169,10 +169,15 @@ def report_list():
         where = "WHERE r.status = %s"
         params.append(status)
     rows = query(
-        f"""SELECT r.*, u1.user_name AS reporter_name, u2.user_name AS handler_name
+        f"""SELECT r.*, u1.user_name AS reporter_name, u2.user_name AS handler_name,
+                  CASE WHEN r.reported_type = '商品' THEN p.title ELSE u3.user_name END AS target_name,
+                  CASE WHEN r.reported_type = '商品' THEN pu.user_name ELSE NULL END AS target_owner_name
            FROM reports r
            JOIN users u1 ON r.reporter_id = u1.user_id
            LEFT JOIN users u2 ON r.handler_id = u2.user_id
+           LEFT JOIN products p ON r.reported_type = '商品' AND r.reported_id = p.product_id
+           LEFT JOIN users pu ON r.reported_type = '商品' AND p.seller_id = pu.user_id
+           LEFT JOIN users u3 ON r.reported_type = '用户' AND r.reported_id = u3.user_id
            {where}
            ORDER BY r.created_at DESC""",
         tuple(params),

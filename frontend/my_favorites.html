@@ -61,7 +61,7 @@ async function loadFavorites() {
           <p class="card-text">
             <span class="text-danger fw-bold">¥${Number(p.price).toFixed(2)}</span>
             <span class="status-badge status-${escapeHtml(p.status)} ms-2">${escapeHtml(p.status)}</span>
-            <span class="text-muted ms-2 small">${escapeHtml(p.seller_name || '')}</span>
+            <a href="/user_profile.html?id=${p.seller_id}" class="seller-link ms-2 small">${escapeHtml(p.seller_name || '')}</a>
           </p>
         </div>
         <div class="card-footer bg-white text-end">

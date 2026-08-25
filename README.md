@@ -63,7 +63,9 @@ campus-trade-system/
 │       ├── order_bp.py        # 下单/支付/确认/评价
 │       ├── lostfound_bp.py    # 失物招领 + 认领
 │       ├── admin_bp.py        # 管理员审核/用户管理/举报
-│       └── stats_bp.py        # 数据统计
+│       ├── stats_bp.py        # 数据统计
+│       ├── user_bp.py         # 用户公开主页（信用/评价/商品/举报）
+│       └── report_bp.py       # 举报提交
 ├── frontend/
 │   ├── login.html             # 登录页
 │   ├── register.html          # 注册页
@@ -73,6 +75,7 @@ campus-trade-system/
 │   ├── my_orders.html         # 我的订单（付款/确认/取消/评价）
 │   ├── lost_found.html        # 失物招领列表 + 发布 + 认领
 │   ├── personal.html          # 个人中心 + 信用记录
+│   ├── user_profile.html      # 用户公开主页
 │   ├── css/style.css          # 自定义样式
 │   ├── js/api.js              # fetch 统一封装
 │   ├── js/components.js       # 导航栏/商品卡片/Toast
@@ -81,6 +84,7 @@ campus-trade-system/
 │       ├── product_audit.html # 商品审核
 │       ├── claim_audit.html   # 认领审核
 │       ├── user_manage.html   # 用户管理
+│       ├── reports.html       # 举报管理
 │       └── logs.html          # 审核日志
 ├── database/
 │   └── 01_init_instance.sql   # 表空间+数据库+用户
@@ -91,37 +95,41 @@ campus-trade-system/
 
 | 文件 | 负责人 | 功能 |
 |------|--------|------|
-| `app.py` | **王博华** | Flask 主入口，6个蓝图已注册 |
-| `config.py` | **王博华** | 数据库 / JWT / 上传 配置 |
+| `app.py` | **王博华** | Flask 主入口，8个蓝图已注册 |
+| `config.py` | **王博华** | 数据库 / JWT / 上传 / 管理员邀请码 配置 |
 | `db.py` | **王博华** | 数据库连接模块（query / execute） |
 | `auth.py` | **王博华** | JWT token + `@login_required` + `@admin_required` |
 | `requirements.txt` | **王博华** | pip 依赖清单 |
-| `blueprints/auth_bp.py` | **王博华** | 登录 / 注册 / 个人信息 / 信用记录 |
+| `blueprints/auth_bp.py` | **王博华** | 登录 / 注册（学生+管理员）/ 个人信息 / 信用记录 |
 | `blueprints/product_bp.py` | **熊倡** | 商品发布 / 列表 / 搜索 / 详情 / 收藏 |
 | `blueprints/order_bp.py` | **吴裕勇** | 下单 / 支付 / 确认收货 / 评价 |
 | `blueprints/lostfound_bp.py` | **王旭坤** | 失物发布 / 列表 / 认领申请 |
 | `blueprints/admin_bp.py` | **刘子懿** | 商品审核 / 认领审核 / 用户管理 / 举报 / 日志 |
 | `blueprints/stats_bp.py` | **王博华** | 4个统计视图的查询接口 |
+| `blueprints/user_bp.py` | **王博华** | 用户公开主页（信用分 / 评价 / 在售商品 / 被举报记录） |
+| `blueprints/report_bp.py` | **王博华** | 举报提交（校验对象 / 禁止自举报 / 防重复） |
 
 ### frontend/ 前端页面
 
 | 文件 | 负责人 | 功能 |
 |------|--------|------|
 | `login.html` | **王博华** | 登录页 |
-| `register.html` | **王博华** | 注册页 |
-| `personal.html` | **王博华** | 个人中心 + 信用记录 |
+| `register.html` | **王博华** | 注册页（学生 / 管理员 + 邀请码） |
+| `personal.html` | **王博华** | 个人中心 + 信用记录 + 收到的评价 + 被举报记录 |
+| `user_profile.html` | **王博华** | 用户公开主页（信用分 / 商品 / 评价 / 违规记录） |
 | `index.html` | **熊倡** | 首页（分类侧栏 + 搜索 + 商品卡片分页） |
 | `product_detail.html` | **熊倡** | 商品详情 + 立即购买按钮 |
 | `product_publish.html` | **熊倡** | 发布商品表单 |
 | `my_orders.html` | **吴裕勇** | 我的订单（付款 / 确认收货 / 取消 / 评价按钮） |
 | `lost_found.html` | **王旭坤** | 失物招领列表 + 发布弹窗 + 认领 |
-| `css/style.css` | **王博华** | 公共样式（状态标签 / 卡片悬停 / 后台侧栏） |
+| `css/style.css` | **王博华** | 暖色主题（公共样式 / 卡片悬停 / 后台侧栏） |
 | `js/api.js` | **王博华** | fetch 统一封装（token 注入 / 401 跳转） |
 | `js/components.js` | **王博华** | 导航栏 / 商品卡片 / Toast 公共组件 |
 | `admin/statistics.html` | **王博华** | 数据统计面板（4 个统计视图） |
 | `admin/product_audit.html` | **刘子懿** | 商品审核（通过 / 驳回） |
 | `admin/claim_audit.html` | **刘子懿** | 认领申请审核 |
 | `admin/user_manage.html` | **刘子懿** | 用户管理（启用 / 禁用） |
+| `admin/reports.html` | **王博华** | 举报管理（待处理 / 核实扣分 / 驳回） |
 | `admin/logs.html` | **刘子懿** | 审核日志 |
 
 ### database/ 数据库脚本
@@ -227,8 +235,8 @@ git checkout main && git merge dev && git push origin main
 
 | 成员 | 后端蓝图 | 前端页面 | 数据库对象 |
 |------|----------|----------|-----------|
-| **王博华** | auth_bp + stats_bp + app/db/auth/config | login / register / personal / statistics + css/js | 3张表 + 4视图 + 整合 + 样本数据 + 全部文档 |
+| **王博华** | auth_bp + stats_bp + user_bp + report_bp + app/db/auth/config | login / register / personal / user_profile / statistics / reports + css/js | 3张表 + 4视图 + 整合 + 样本数据 + 全部文档 |
 | **熊倡** | product_bp | index / product_detail / product_publish | 4张表 DDL + 索引 |
 | **吴裕勇** | order_bp | my_orders | 4张表 + 2触发器 + 2存储过程 |
 | **王旭坤** | lostfound_bp | lost_found | 2张表 DDL |
-| **刘子懿** | admin_bp | admin/ 全部 4 个页面 | 2张表 + 1存储过程 |
+| **刘子懿** | admin_bp | admin/ 审核与用户管理页面 | 2张表 + 1存储过程 |

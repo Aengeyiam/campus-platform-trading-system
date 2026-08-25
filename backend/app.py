@@ -23,6 +23,8 @@ from blueprints.order_bp    import order_bp
 from blueprints.lostfound_bp import lostfound_bp
 from blueprints.admin_bp    import admin_bp
 from blueprints.stats_bp    import stats_bp
+from blueprints.user_bp     import user_bp
+from blueprints.report_bp   import report_bp
 
 app.register_blueprint(auth_bp,      url_prefix="/api/auth")
 app.register_blueprint(product_bp,   url_prefix="/api/products")
@@ -30,6 +32,8 @@ app.register_blueprint(order_bp,     url_prefix="/api/orders")
 app.register_blueprint(lostfound_bp, url_prefix="/api/lostfound")
 app.register_blueprint(admin_bp,     url_prefix="/api/admin")
 app.register_blueprint(stats_bp,     url_prefix="/api/stats")
+app.register_blueprint(user_bp,      url_prefix="/api/users")
+app.register_blueprint(report_bp,    url_prefix="/api/reports")
 
 
 # ---- 前端静态页面 ----

@@ -31,6 +31,37 @@
   <div id="orderList"></div>
 </div>
 
+<!-- 评价弹窗 -->
+<div class="modal fade" id="reviewModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">评价这次交易</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center mb-3">
+          <div class="text-muted mb-2">请选择评分</div>
+          <div class="stars justify-content-center" id="ratingStars">
+            <span class="star" data-v="1">★</span>
+            <span class="star" data-v="2">★</span>
+            <span class="star" data-v="3">★</span>
+            <span class="star" data-v="4">★</span>
+            <span class="star" data-v="5">★</span>
+          </div>
+          <div class="text-muted small mt-1" id="ratingLabel">点击星星评分</div>
+        </div>
+        <label class="form-label">评语（选填）</label>
+        <textarea id="reviewComment" class="form-control" rows="3" maxlength="500" placeholder="说说这次交易的体验吧"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" onclick="submitReview()">提交评价</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/components.js"></script>
@@ -58,7 +89,9 @@ async function loadOrders() {
           <div>
             <strong>${o.product_title}</strong>
             <div class="text-muted small">
-              ${currentRole === 'seller' ? `买家: ${o.buyer_name}` : `卖家: ${o.seller_name}`}
+              ${currentRole === 'seller'
+                ? `买家: <a href="/user_profile.html?id=${o.buyer_id}" class="seller-link">${o.buyer_name}</a>`
+                : `卖家: <a href="/user_profile.html?id=${o.seller_id}" class="seller-link">${o.seller_name}</a>`}
               &nbsp;|&nbsp; ¥${Number(o.amount).toFixed(2)}
               &nbsp;|&nbsp; ${new Date(o.created_at).toLocaleString()}
             </div>
@@ -126,12 +159,15 @@ async function confirmOrder(oid) {
 
   const res = await API.put(`/api/orders/${oid}/confirm`);
 
-  showToast(
-    res.msg,
-    res.code === 200 ? "success" : "error"
-  );
-
-  await loadOrders();
+  if (res.code === 200) {
+    showToast("收货成功，可以评价这次交易啦");
+    await loadOrders();
+    // 收货成功后直接弹出评价窗口，用户可立即评价，也可关闭后稍后评价
+    review(oid);
+  } else {
+    showToast(res.msg, "error");
+    await loadOrders();
+  }
 }
 
 
@@ -155,40 +191,50 @@ async function cancel(oid) {
 }
 
 
-async function review(oid) {
-  const rating = window.prompt("请评分 (1-5)：");
+let currentReviewOrder = null;
+let currentRating = 0;
 
-  if (rating === null || rating === "") return;
+function review(oid) {
+  currentReviewOrder = oid;
+  currentRating = 0;
+  document.getElementById("reviewComment").value = "";
+  document.querySelectorAll("#ratingStars .star").forEach(s => s.classList.remove("active"));
+  document.getElementById("ratingLabel").textContent = "点击星星评分";
+  new bootstrap.Modal(document.getElementById("reviewModal")).show();
+}
 
-  const ratingNumber = Number(rating);
+// 星级点选
+document.querySelectorAll("#ratingStars .star").forEach(s => {
+  s.addEventListener("click", () => {
+    currentRating = Number(s.dataset.v);
+    document.querySelectorAll("#ratingStars .star").forEach(x => {
+      x.classList.toggle("active", Number(x.dataset.v) <= currentRating);
+    });
+    const labels = ["", "很差", "较差", "一般", "满意", "非常满意"];
+    document.getElementById("ratingLabel").textContent = labels[currentRating];
+  });
+});
 
-  if (
-    !Number.isInteger(ratingNumber) ||
-    ratingNumber < 1 ||
-    ratingNumber > 5
-  ) {
-    showToast("评分必须是 1-5 的整数", "error");
-    return;
-  }
-
-  const comment =
-    window.prompt("评语（选填）：") ?? "";
+async function submitReview() {
+  if (!currentRating) { showToast("请先选择评分", "error"); return; }
+  const comment = document.getElementById("reviewComment").value.trim();
 
   const res = await API.post(
     "/api/orders/reviews",
     {
-      order_id: oid,
-      rating: ratingNumber,
+      order_id: currentReviewOrder,
+      rating: currentRating,
       comment
     }
   );
 
-  showToast(
-    res.msg,
-    res.code === 200 ? "success" : "error"
-  );
-
-  await loadOrders();
+  if (res.code === 200) {
+    bootstrap.Modal.getInstance(document.getElementById("reviewModal")).hide();
+    showToast(res.msg);
+    await loadOrders();
+  } else {
+    showToast(res.msg, "error");
+  }
 }
 
 

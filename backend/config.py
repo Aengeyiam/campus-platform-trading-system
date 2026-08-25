@@ -45,6 +45,10 @@ class Config:
     # ---- JWT Token ----
     TOKEN_EXPIRE_HOURS = 24    # 登录有效期
 
+    # ---- 管理员注册邀请码（注册管理员账号时需填写） ----
+    # 建议在 config_local.py 中覆盖为你们小组自己商定的口令，避免默认值被公开。
+    ADMIN_INVITE_CODE = os.getenv("ADMIN_INVITE_CODE", "campus2026")
+
     # ---- 上传 ----
     UPLOAD_FOLDER = "../frontend/uploads"
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB

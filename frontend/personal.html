@@ -18,12 +18,27 @@
   <div class="card shadow-sm mb-4" id="profileCard"></div>
 
   <!-- 信用记录 -->
-  <div class="card shadow-sm">
+  <div class="card shadow-sm mb-4">
     <div class="card-header fw-bold d-flex justify-content-between">
       <span>信用记录</span>
       <span class="text-success" id="creditScore"></span>
     </div>
     <div class="card-body" id="creditRecords"></div>
+  </div>
+
+  <!-- 我收到的评价 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold d-flex justify-content-between">
+      <span>我收到的评价</span>
+      <a href="#" id="myProfileLink" class="small">查看我的公开主页</a>
+    </div>
+    <div class="card-body" id="myReviews"><div class="text-muted text-center py-3">加载中...</div></div>
+  </div>
+
+  <!-- 我被举报核实记录 -->
+  <div class="card shadow-sm">
+    <div class="card-header fw-bold">我被举报核实记录</div>
+    <div class="card-body" id="myReports"><div class="text-muted text-center py-3">加载中...</div></div>
   </div>
 </div>
 
@@ -31,6 +46,19 @@
 <script src="/js/api.js"></script>
 <script src="/js/components.js"></script>
 <script>
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+function starRow(rating) {
+  let s = "";
+  for (let i = 1; i <= 5; i++) {
+    s += `<span style="color:${i <= rating ? '#FFB85C' : '#EADCCE'}">★</span>`;
+  }
+  return s;
+}
+
 async function loadProfile() {
   if (!API.user()) { window.location.href = "/login.html"; return; }
 
@@ -66,6 +94,59 @@ async function loadProfile() {
     `).join("");
   } else {
     crDiv.innerHTML = '<div class="text-muted text-center py-3">暂无信用变动记录</div>';
+  }
+
+  // 我收到的评价 + 被举报记录（复用公开主页接口）
+  document.getElementById("myProfileLink").href = `/user_profile.html?id=${u.user_id}`;
+  const pub = await API.get(`/api/users/${u.user_id}`);
+  if (pub.code === 200) {
+    const d = pub.data;
+
+    const rvDiv = document.getElementById("myReviews");
+    if (d.reviews.length) {
+      rvDiv.innerHTML = d.reviews.map(r => `
+        <div class="py-2 border-bottom">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <div>${starRow(r.rating)} <span class="fw-semibold ms-1">${escapeHtml(r.reviewer_name)}</span></div>
+            <small class="text-muted">${new Date(r.created_at).toLocaleString()}</small>
+          </div>
+          ${r.comment ? `<div class="text-secondary small mb-2">${escapeHtml(r.comment)}</div>` : ''}
+          ${r.product_id ? `
+          <a href="/product_detail.html?id=${r.product_id}" class="text-decoration-none">
+            <div class="d-flex align-items-center gap-2 p-2 rounded" style="background:#FFF6F0">
+              ${r.cover_image ? `<img src="${escapeHtml(r.cover_image)}" width="36" height="36" style="object-fit:cover" class="rounded">` : ''}
+              <span class="text-muted small">商品：<span class="text-dark fw-semibold">${escapeHtml(r.product_title || `#${r.product_id}`)}</span></span>
+            </div>
+          </a>` : ''}
+        </div>`).join("");
+    } else {
+      rvDiv.innerHTML = '<div class="text-muted text-center py-3">暂无评价</div>';
+    }
+
+    const rpDiv = document.getElementById("myReports");
+    if (d.reports.length) {
+      rpDiv.innerHTML = d.reports.map(r => {
+        const isProduct = r.reported_type === '商品';
+        const productBlock = isProduct ? `
+          <a href="/product_detail.html?id=${r.reported_id}" class="text-decoration-none">
+            <div class="d-flex align-items-center gap-2 mt-2 p-2 rounded" style="background:#FFF6F0">
+              ${r.cover_image ? `<img src="${escapeHtml(r.cover_image)}" width="36" height="36" style="object-fit:cover" class="rounded">` : ''}
+              <span class="text-dark small fw-semibold">${escapeHtml(r.target_name || `商品 #${r.reported_id}`)}</span>
+            </div>
+          </a>` : '';
+        return `
+          <div class="py-2 border-bottom">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div><span class="badge bg-secondary me-1">${escapeHtml(r.reported_type)}</span><span class="badge bg-danger">核实违规</span></div>
+              <small class="text-muted">${r.handle_time ? new Date(r.handle_time).toLocaleString() : ''}</small>
+            </div>
+            ${r.reason ? `<div class="text-secondary small">${escapeHtml(r.reason)}</div>` : ''}
+            ${productBlock}
+          </div>`;
+      }).join("");
+    } else {
+      rpDiv.innerHTML = '<div class="text-center py-3 text-success">✅ 无违规记录，信用良好</div>';
+    }
   }
 }
 

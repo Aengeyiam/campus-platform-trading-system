@@ -5,6 +5,7 @@
 from flask import Blueprint, request, g
 from db import query, query_one, execute
 from auth import generate_token, login_required, hash_password
+from config import Config
 import psycopg2  # 用于捕获 UniqueViolation / ForeignKeyViolation
 
 auth_bp = Blueprint("auth", __name__)
@@ -12,7 +13,8 @@ auth_bp = Blueprint("auth", __name__)
 
 # ============================================================
 #  POST /api/auth/register
-#  body: { student_id, user_name, password, phone?, qq? }
+#  body: { student_id, user_name, password, phone?, qq?,
+#          role? = "学生" | "管理员", admin_code? }
 # ============================================================
 @auth_bp.route("/register", methods=["POST"])
 def register():
@@ -20,12 +22,23 @@ def register():
     student_id = (data.get("student_id") or "").strip()
     user_name = (data.get("user_name") or "").strip()
     password = (data.get("password") or "").strip()
+    role_name = (data.get("role") or "学生").strip()
 
     # 校验
     if not student_id or not user_name or not password:
         return {"code": 400, "msg": "学号、姓名、密码不能为空"}, 400
     if len(password) < 6:
         return {"code": 400, "msg": "密码至少6位"}, 400
+
+    # 角色合法性
+    if role_name not in ("学生", "管理员"):
+        return {"code": 400, "msg": "无效的角色类型"}, 400
+
+    # 管理员注册需要邀请码
+    if role_name == "管理员":
+        admin_code = (data.get("admin_code") or "").strip()
+        if not admin_code or admin_code != Config.ADMIN_INVITE_CODE:
+            return {"code": 403, "msg": "管理员邀请码错误"}, 403
 
     # 学号唯一
     exist = query_one("SELECT user_id FROM users WHERE student_id = %s", (student_id,))
@@ -37,19 +50,20 @@ def register():
     phone = data.get("phone", "") or ""
     qq = data.get("qq", "") or ""
 
-    # 动态查找 '学生' 角色的 role_id（避免硬编码假定 role_id=1）
-    student_role = query_one("SELECT role_id FROM roles WHERE role_name = %s", ("学生",))
-    if not student_role:
-        # 极端情况：roles 表为空。兜底插入，避免注册链路全断。
-        execute(
-            "INSERT INTO roles (role_name, description) VALUES (%s, %s) "
-            "ON CONFLICT (role_name) DO NOTHING",
-            ("学生", "普通学生用户，可买卖商品、发布失物招领"),
-        )
-        student_role = query_one("SELECT role_id FROM roles WHERE role_name = %s", ("学生",))
-        if not student_role:
-            return {"code": 500, "msg": "未找到学生角色，请管理员补齐 roles 表"}, 500
-    student_role_id = student_role["role_id"]
+    # 动态查找目标角色的 role_id（避免硬编码假定 role_id=1）
+    role = query_one("SELECT role_id FROM roles WHERE role_name = %s", (role_name,))
+    if not role:
+        # 极端情况：roles 表缺少该角色。仅对「学生」兜底插入，管理员不做兜底。
+        if role_name == "学生":
+            execute(
+                "INSERT INTO roles (role_name, description) VALUES (%s, %s) "
+                "ON CONFLICT (role_name) DO NOTHING",
+                ("学生", "普通学生用户，可买卖商品、发布失物招领"),
+            )
+            role = query_one("SELECT role_id FROM roles WHERE role_name = %s", ("学生",))
+        if not role:
+            return {"code": 500, "msg": f"未找到「{role_name}」角色，请管理员补齐 roles 表"}, 500
+    role_id = role["role_id"]
 
     try:
         execute(
@@ -61,10 +75,10 @@ def register():
         if not user:
             return {"code": 500, "msg": "用户已写入但回查失败，请重试"}, 500
 
-        # 分配学生角色
+        # 分配角色
         execute(
             "INSERT INTO user_roles (user_id, role_id) VALUES (%s, %s)",
-            (user["user_id"], student_role_id),
+            (user["user_id"], role_id),
         )
     except psycopg2.errors.UniqueViolation:
         return {"code": 400, "msg": "该学号已被注册"}, 400

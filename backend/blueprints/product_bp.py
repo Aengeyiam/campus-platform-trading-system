@@ -236,7 +236,7 @@ def list_products():
         SELECT p.product_id, p.title, p.price, p.condition, p.status,
                p.view_count, p.created_at,
                c.category_name,
-               u.user_name AS seller_name, u.credit_score AS seller_credit,
+               u.user_id AS seller_id, u.user_name AS seller_name, u.credit_score AS seller_credit,
                (SELECT image_url FROM product_images
                 WHERE product_id = p.product_id AND is_cover = 1 LIMIT 1) AS cover_image
         FROM products p
@@ -396,7 +396,7 @@ def my_favorites():
     rows = query(
         """SELECT p.product_id, p.title, p.price, p.condition, p.status,
                   p.created_at,
-                  u.user_name AS seller_name, u.credit_score AS seller_credit,
+                  u.user_id AS seller_id, u.user_name AS seller_name, u.credit_score AS seller_credit,
                   (SELECT image_url FROM product_images
                    WHERE product_id = p.product_id AND is_cover = 1 LIMIT 1) AS cover_image
            FROM favorites f
@@ -422,7 +422,7 @@ def search():
 
     rows = query(
         """SELECT p.product_id, p.title, p.price, p.condition, p.status, p.created_at,
-                  c.category_name, u.user_name AS seller_name, u.credit_score AS seller_credit,
+                  c.category_name, u.user_id AS seller_id, u.user_name AS seller_name, u.credit_score AS seller_credit,
                   (SELECT image_url FROM product_images WHERE product_id=p.product_id AND is_cover=1 LIMIT 1) AS cover_image
            FROM products p
            JOIN categories c ON p.category_id = c.category_id

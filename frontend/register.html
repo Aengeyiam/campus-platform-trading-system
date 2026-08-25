@@ -10,34 +10,63 @@
 <body>
 <div id="toast-container" class="position-fixed top-0 end-0 p-3" style="z-index:9999"></div>
 
-<div class="container auth-container">
-  <h3 class="text-center mb-4">注册新账号</h3>
-  <div class="card shadow-sm">
-    <div class="card-body p-4">
-      <form id="registerForm">
-        <div class="mb-3">
-          <label class="form-label">学号 <span class="text-danger">*</span></label>
-          <input type="text" name="student_id" class="form-control" required placeholder="学号唯一，不可重复">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">姓名 <span class="text-danger">*</span></label>
-          <input type="text" name="user_name" class="form-control" required placeholder="真实姓名">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">密码 <span class="text-danger">*</span></label>
-          <input type="password" name="password" class="form-control" required placeholder="至少6位" minlength="6">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">手机号</label>
-          <input type="text" name="phone" class="form-control" placeholder="选填">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">QQ号</label>
-          <input type="text" name="qq" class="form-control" placeholder="选填">
-        </div>
-        <button type="submit" class="btn btn-primary w-100">注册</button>
-      </form>
-      <p class="text-center mt-3 mb-0"><small>已有账号？<a href="/login.html">返回登录</a></small></p>
+<div class="auth-wrap">
+  <div class="auth-container">
+    <div class="auth-brand">
+      <span class="brand-mark">🏫</span>
+      <h4 class="fw-bold mb-1">加入校园集市</h4>
+      <div class="text-muted small">注册一个账号，开启温暖的校园交换之旅</div>
+    </div>
+    <div class="card auth-card">
+      <div class="card-body p-4 p-md-5">
+        <form id="registerForm">
+          <div class="mb-4">
+            <label class="form-label d-block">选择身份 <span class="text-danger">*</span></label>
+            <div class="role-select">
+              <label class="role-option active" id="roleStudent">
+                <input type="radio" name="role" value="学生" checked>
+                <span class="role-icon">🎓</span>
+                <span class="role-name">学生</span>
+                <span class="role-desc">买卖闲置 · 发布招领</span>
+              </label>
+              <label class="role-option" id="roleAdmin">
+                <input type="radio" name="role" value="管理员">
+                <span class="role-icon">🛡️</span>
+                <span class="role-name">管理员</span>
+                <span class="role-desc">审核内容 · 管理平台</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">学号 <span class="text-danger">*</span></label>
+            <input type="text" name="student_id" class="form-control" required placeholder="学号唯一，不可重复">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">姓名 <span class="text-danger">*</span></label>
+            <input type="text" name="user_name" class="form-control" required placeholder="真实姓名">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">密码 <span class="text-danger">*</span></label>
+            <input type="password" name="password" class="form-control" required placeholder="至少6位" minlength="6">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">手机号</label>
+            <input type="text" name="phone" class="form-control" placeholder="选填">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">QQ号</label>
+            <input type="text" name="qq" class="form-control" placeholder="选填">
+          </div>
+          <div class="mb-3" id="adminCodeWrap" style="display:none">
+            <label class="form-label">管理员邀请码 <span class="text-danger">*</span></label>
+            <input type="password" name="admin_code" class="form-control" placeholder="请输入管理员邀请码">
+            <div class="form-text text-muted">仅管理员注册时需要，请向小组负责人获取</div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100 py-2">注册</button>
+        </form>
+        <p class="text-center mt-4 mb-0"><small>已有账号？<a href="/login.html" class="fw-semibold">返回登录</a></small></p>
+      </div>
     </div>
   </div>
 </div>
@@ -46,17 +75,29 @@
 <script src="/js/api.js"></script>
 <script src="/js/components.js"></script>
 <script>
+// 角色切换：学生/管理员
+function syncRoleUI() {
+  const role = document.querySelector('input[name="role"]:checked').value;
+  document.getElementById("roleStudent").classList.toggle("active", role === "学生");
+  document.getElementById("roleAdmin").classList.toggle("active", role === "管理员");
+  document.getElementById("adminCodeWrap").style.display = role === "管理员" ? "block" : "none";
+}
+document.querySelectorAll('input[name="role"]').forEach(r => r.addEventListener("change", syncRoleUI));
+
 document.getElementById("registerForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const btn = e.target.querySelector("button");
   btn.disabled = true; btn.textContent = "注册中...";
 
+  const role = document.querySelector('input[name="role"]:checked').value;
   const data = {
     student_id: e.target.student_id.value.trim(),
     user_name: e.target.user_name.value.trim(),
     password: e.target.password.value.trim(),
     phone: e.target.phone.value.trim(),
     qq: e.target.qq.value.trim(),
+    role: role,
+    admin_code: e.target.admin_code.value.trim(),
   };
 
   if (data.password.length < 6) {

@@ -14,9 +14,12 @@ class CampusNavbar {
         const role = user ? user.role : null;
 
         nav.innerHTML = `
-        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <nav class="navbar navbar-expand-lg campus-nav">
           <div class="container">
-            <a class="navbar-brand fw-bold" href="/index.html">校园二手</a>
+            <a class="navbar-brand" href="/index.html">
+              <span class="brand-mark">🏫</span>
+              <span>校园集市</span>
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
               <span class="navbar-toggler-icon"></span>
             </button>
@@ -30,7 +33,7 @@ class CampusNavbar {
               <ul class="navbar-nav">
                 ${user ? `
                   <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">${user.user_name}</a>
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">👋 ${user.user_name}</a>
                     <ul class="dropdown-menu">
                       <li><a class="dropdown-item" href="/personal.html">个人中心</a></li>
                       ${role === '管理员' ? `<li><a class="dropdown-item" href="/admin/statistics.html">管理后台</a></li>` : ''}
@@ -46,6 +49,13 @@ class CampusNavbar {
             </div>
           </div>
         </nav>`;
+
+        // 当前页导航高亮
+        const current = window.location.pathname.replace(/\/+$/, "") || "/index.html";
+        nav.querySelectorAll(".nav-link").forEach(a => {
+            const href = a.getAttribute("href");
+            if (href && href !== "#" && current.endsWith(href)) a.classList.add("active");
+        });
     }
 
     static logout() {
@@ -57,21 +67,21 @@ class CampusNavbar {
 
 /* ========== 商品卡片 ========== */
 function renderProductCard(p) {
-    const cover = p.cover_image || "https://placehold.co/400x300/e2e8f0/64748b?text=No+Image";
+    const cover = p.cover_image || "https://placehold.co/400x300/f1e5db/97887a?text=No+Image";
     return `
     <div class="col">
-      <div class="card h-100 shadow-sm product-card" onclick="location.href='/product_detail.html?id=${p.product_id}'" style="cursor:pointer">
+      <div class="card h-100 product-card" onclick="location.href='/product_detail.html?id=${p.product_id}'" style="cursor:pointer">
         <img src="${cover}" class="card-img-top" style="height:200px;object-fit:cover" alt="${p.title}">
         <div class="card-body">
-          <h6 class="card-title text-truncate">${p.title}</h6>
-          <p class="card-text">
-            <span class="text-danger fw-bold fs-5">¥${Number(p.price).toFixed(2)}</span>
+          <h6 class="card-title text-truncate mb-1">${p.title}</h6>
+          <p class="card-text mb-0">
+            <span class="price-tag fs-5">¥${Number(p.price).toFixed(2)}</span>
             <small class="text-muted ms-2">${p.condition || ''}</small>
           </p>
         </div>
-        <div class="card-footer bg-white d-flex justify-content-between">
-          <small class="text-muted">${p.seller_name || ''}</small>
-          <small>信用: <span class="text-success">${p.seller_credit || 100}</span></small>
+        <div class="card-footer d-flex justify-content-between">
+          ${p.seller_id ? `<a href="/user_profile.html?id=${p.seller_id}" class="seller-link" onclick="event.stopPropagation()">${p.seller_name || ''}</a>` : `<small class="text-muted">${p.seller_name || ''}</small>`}
+          <small>信用 <span class="text-success fw-semibold">${p.seller_credit || 100}</span></small>
         </div>
       </div>
     </div>`;

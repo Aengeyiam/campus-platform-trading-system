@@ -86,7 +86,7 @@ async function loadList() {
           <strong>${lf.title}</strong>
           <div class="text-muted small mt-1">
             ${lf.location} &nbsp;|&nbsp; ${lf.lf_date}
-            &nbsp;|&nbsp; 发布者: ${lf.publisher_name}
+            &nbsp;|&nbsp; 发布者: <a href="/user_profile.html?id=${lf.publisher_id}" class="seller-link">${lf.publisher_name}</a>
             &nbsp;|&nbsp; <span class="status-badge status-${lf.status}">${lf.status}</span>
           </div>
         </div>
