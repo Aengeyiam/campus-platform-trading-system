@@ -14,7 +14,9 @@ from auth import login_required, verify_token
 
 product_bp = Blueprint("product", __name__)
 
-# 上传目录：backend/../frontend/uploads
+# 上传目录：项目根/frontend/uploads
+# __file__ = .../backend/blueprints/product_bp.py
+# 3 次 dirname 到达项目根，再 join frontend/uploads（与 app.py serve_frontend 路径一致）
 PROJECT_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
